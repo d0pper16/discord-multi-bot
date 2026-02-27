@@ -1,0 +1,643 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Multi-Bot Dashboard</title>
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1e1e2e 0%, #2a2a3e 100%);
+            color: #e0e0e0;
+            padding: 20px;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 2px solid #404050;
+        }
+
+        h1 {
+            font-size: 2.5em;
+            color: #00d4ff;
+            text-shadow: 0 0 10px rgba(0, 212, 255, 0.5);
+        }
+
+        h2 {
+            color: #00d4ff;
+            font-size: 1.3em;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #404050;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .stat-card {
+            background: linear-gradient(135deg, #2d2d3d 0%, #3d3d4d 100%);
+            border: 1px solid #404050;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            transition: all 0.3s ease;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-5px);
+            border-color: #00d4ff;
+            box-shadow: 0 12px 40px rgba(0, 212, 255, 0.2);
+        }
+
+        .stat-card h3 {
+            color: #00d4ff;
+            font-size: 0.9em;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 10px;
+        }
+
+        .stat-value {
+            font-size: 2em;
+            font-weight: bold;
+            color: #fff;
+            margin-bottom: 5px;
+        }
+
+        .stat-subtext {
+            font-size: 0.85em;
+            color: #a0a0a0;
+            margin-bottom: 10px;
+        }
+
+        .threshold-info {
+            background: rgba(0, 0, 0, 0.2);
+            padding: 10px;
+            border-radius: 5px;
+            font-size: 0.8em;
+            margin-top: 10px;
+        }
+
+        .threshold-info p {
+            margin: 3px 0;
+            color: #b0b0b0;
+        }
+
+        .status-indicator {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 8px;
+            animation: pulse 2s infinite;
+        }
+
+        .status-low {
+            background-color: #00ff00;
+            box-shadow: 0 0 10px rgba(0, 255, 0, 0.5);
+        }
+
+        .status-normal {
+            background-color: #00ff88;
+            box-shadow: 0 0 10px rgba(0, 255, 136, 0.5);
+        }
+
+        .status-high {
+            background-color: #ffaa00;
+            box-shadow: 0 0 10px rgba(255, 170, 0, 0.5);
+        }
+
+        .status-veryhigh {
+            background-color: #ff6600;
+            box-shadow: 0 0 10px rgba(255, 102, 0, 0.5);
+        }
+
+        .status-critical {
+            background-color: #ff0000;
+            box-shadow: 0 0 15px rgba(255, 0, 0, 0.8);
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .overall-status {
+            background: linear-gradient(135deg, #2d2d3d 0%, #3d3d4d 100%);
+            border: 2px solid #00d4ff;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 30px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            text-align: center;
+        }
+
+        .overall-status h2 {
+            border-bottom: none;
+            margin-bottom: 15px;
+        }
+
+        .overall-status-value {
+            font-size: 2.5em;
+            font-weight: bold;
+            color: #00d4ff;
+            text-shadow: 0 0 10px rgba(0, 212, 255, 0.5);
+            margin-bottom: 10px;
+        }
+
+        .bots-section {
+            background: linear-gradient(135deg, #2d2d3d 0%, #3d3d4d 100%);
+            border: 1px solid #404050;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 30px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+        }
+
+        .bot-item {
+            background: rgba(0, 0, 0, 0.2);
+            border-left: 4px solid #00d4ff;
+            padding: 15px;
+            margin-bottom: 10px;
+            border-radius: 5px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .bot-info h3 {
+            color: #fff;
+            margin-bottom: 5px;
+            font-size: 1.1em;
+        }
+
+        .bot-info p {
+            color: #a0a0a0;
+            font-size: 0.85em;
+        }
+
+        .bot-actions {
+            display: flex;
+            gap: 10px;
+        }
+
+        button {
+            background: linear-gradient(135deg, #00d4ff 0%, #0099cc 100%);
+            border: none;
+            color: #000;
+            padding: 8px 16px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 0.9em;
+            transition: all 0.3s ease;
+        }
+
+        button:hover {
+            transform: scale(1.05);
+            box-shadow: 0 0 20px rgba(0, 212, 255, 0.4);
+        }
+
+        button:active {
+            transform: scale(0.95);
+        }
+
+        .control-panel {
+            background: linear-gradient(135deg, #2d2d3d 0%, #3d3d4d 100%);
+            border: 1px solid #404050;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            text-align: center;
+        }
+
+        .control-panel button {
+            background: linear-gradient(135deg, #ff6600 0%, #cc3300 100%);
+            padding: 12px 24px;
+            font-size: 1em;
+            margin-top: 10px;
+        }
+
+        .chart-container {
+            background: linear-gradient(135deg, #2d2d3d 0%, #3d3d4d 100%);
+            border: 1px solid #404050;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 30px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+        }
+
+        #ramChart, #cpuChart {
+            max-height: 300px;
+        }
+
+        .alert {
+            background: rgba(255, 100, 0, 0.2);
+            border-left: 4px solid #ff6600;
+            padding: 15px;
+            margin-bottom: 20px;
+            border-radius: 5px;
+            color: #ffaa00;
+        }
+
+        .alert.critical {
+            background: rgba(255, 0, 0, 0.2);
+            border-left-color: #ff0000;
+            color: #ff5555;
+        }
+
+        .threshold-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+            padding-top: 20px;
+            border-top: 1px solid #404050;
+        }
+
+        .threshold-card {
+            background: rgba(0, 0, 0, 0.3);
+            padding: 12px;
+            border-radius: 5px;
+            border-left: 3px solid #00d4ff;
+        }
+
+        .threshold-card h4 {
+            color: #00d4ff;
+            font-size: 0.9em;
+            margin-bottom: 8px;
+        }
+
+        .threshold-card ul {
+            list-style: none;
+            font-size: 0.8em;
+        }
+
+        .threshold-card li {
+            padding: 3px 0;
+            color: #b0b0b0;
+        }
+
+        footer {
+            text-align: center;
+            margin-top: 40px;
+            padding-top: 20px;
+            border-top: 1px solid #404050;
+            color: #606070;
+            font-size: 0.9em;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🤖 Multi-Bot Dashboard</h1>
+            <p>Real-time Monitoring & Control</p>
+        </header>
+
+        <div id="alerts"></div>
+
+        <div class="overall-status">
+            <h2>Overall System Status</h2>
+            <div class="overall-status-value">
+                <span class="status-indicator" id="overallStatus"></span>
+                <span id="overallStatusText">--</span>
+            </div>
+        </div>
+
+        <div class="stats-grid">
+            <div class="stat-card">
+                <h3>📊 RAM Usage</h3>
+                <div class="stat-value">
+                    <span id="ramPercentage">--</span>%
+                </div>
+                <div class="stat-subtext" id="ramUsage">-- MB / -- MB</div>
+                <div>
+                    <span class="status-indicator" id="ramStatus"></span>
+                    <span id="ramStatusText">--</span>
+                </div>
+                <div class="threshold-info">
+                    <p>💡 RAM Status Level</p>
+                </div>
+            </div>
+
+            <div class="stat-card">
+                <h3>⚙️ CPU Usage</h3>
+                <div class="stat-value" id="cpuPercentage">--</div>
+                <div class="stat-subtext">%</div>
+                <div>
+                    <span class="status-indicator" id="cpuStatus"></span>
+                    <span id="cpuStatusText">--</span>
+                </div>
+                <div class="threshold-info">
+                    <p>💡 CPU Status Level</p>
+                </div>
+            </div>
+
+            <div class="stat-card">
+                <h3>🕐 Uptime</h3>
+                <div class="stat-value" id="uptime">--</div>
+                <div class="stat-subtext">Hours</div>
+            </div>
+        </div>
+
+        <div class="threshold-grid">
+            <div class="threshold-card">
+                <h4>📊 RAM Thresholds</h4>
+                <ul>
+                    <li>🟢 Low: < 49%</li>
+                    <li>🟡 Normal: 50-60%</li>
+                    <li>🟠 High: 60-75%</li>
+                    <li>🔶 Very High: 75-89%</li>
+                    <li>🔴 Critical: 90+%</li>
+                </ul>
+            </div>
+            <div class="threshold-card">
+                <h4>⚙️ CPU Thresholds</h4>
+                <ul>
+                    <li>🟢 Low: < 40%</li>
+                    <li>🟡 Normal: 40-59%</li>
+                    <li>🟠 High: 60-75%</li>
+                    <li>🔶 Very High: 75-85%</li>
+                    <li>🔴 Critical: 85+%</li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="bots-section">
+            <h2>🎵 Connected Bots</h2>
+            <div id="botsList"></div>
+        </div>
+
+        <div class="chart-container">
+            <h2>📈 RAM History (Last 100 readings)</h2>
+            <canvas id="ramChart"></canvas>
+        </div>
+
+        <div class="chart-container">
+            <h2>📊 CPU History (Last 100 readings)</h2>
+            <canvas id="cpuChart"></canvas>
+        </div>
+
+        <div class="control-panel">
+            <h2>🎮 Control Panel</h2>
+            <button onclick="restartAllBots()">🔄 Restart All Bots</button>
+        </div>
+
+        <footer>
+            <p>Last updated: <span id="lastUpdate">--</span> | Made by d0pper16</p>
+        </footer>
+    </div>
+
+    <script>
+        const socket = io();
+        let ramChart, cpuChart;
+        let ramLabels = [];
+        let ramData = [];
+        let cpuData = [];
+
+        // Initialize charts
+        function initCharts() {
+            const ramCtx = document.getElementById('ramChart').getContext('2d');
+            const cpuCtx = document.getElementById('cpuChart').getContext('2d');
+
+            ramChart = new Chart(ramCtx, {
+                type: 'line',
+                data: {
+                    labels: ramLabels,
+                    datasets: [{
+                        label: 'RAM Usage (%)',
+                        data: ramData,
+                        borderColor: '#00d4ff',
+                        backgroundColor: 'rgba(0, 212, 255, 0.1)',
+                        tension: 0.4,
+                        fill: true,
+                        pointRadius: 2,
+                        pointBackgroundColor: '#00d4ff'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { labels: { color: '#a0a0a0' } }
+                    },
+                    scales: {
+                        y: {
+                            min: 0,
+                            max: 100,
+                            ticks: { color: '#a0a0a0' },
+                            grid: { color: '#404050' }
+                        },
+                        x: { ticks: { color: '#a0a0a0' }, grid: { color: '#404050' } }
+                    }
+                }
+            });
+
+            cpuChart = new Chart(cpuCtx, {
+                type: 'line',
+                data: {
+                    labels: ramLabels,
+                    datasets: [{
+                        label: 'CPU Usage (%)',
+                        data: cpuData,
+                        borderColor: '#00ff88',
+                        backgroundColor: 'rgba(0, 255, 136, 0.1)',
+                        tension: 0.4,
+                        fill: true,
+                        pointRadius: 2,
+                        pointBackgroundColor: '#00ff88'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { labels: { color: '#a0a0a0' } }
+                    },
+                    scales: {
+                        y: {
+                            min: 0,
+                            max: 100,
+                            ticks: { color: '#a0a0a0' },
+                            grid: { color: '#404050' }
+                        },
+                        x: { ticks: { color: '#a0a0a0' }, grid: { color: '#404050' } }
+                    }
+                }
+            });
+        }
+
+        // Update stats
+        socket.on('stats', (stats) => {
+            // Update stat cards
+            document.getElementById('ramPercentage').textContent = stats.ram.percentage.toFixed(1);
+            document.getElementById('ramUsage').textContent = `${stats.ram.used.toFixed(1)} MB / ${stats.ram.total.toFixed(1)} MB`;
+            document.getElementById('cpuPercentage').textContent = stats.cpu.percentage.toFixed(1);
+            document.getElementById('uptime').textContent = (stats.uptime / 3600).toFixed(2);
+            document.getElementById('lastUpdate').textContent = new Date(stats.timestamp).toLocaleTimeString();
+
+            // Update RAM status
+            const ramStatusEl = document.getElementById('ramStatus');
+            ramStatusEl.className = `status-indicator status-${stats.ram.status}`;
+            document.getElementById('ramStatusText').textContent = stats.ram.status.toUpperCase();
+
+            // Update CPU status
+            const cpuStatusEl = document.getElementById('cpuStatus');
+            cpuStatusEl.className = `status-indicator status-${stats.cpu.status}`;
+            document.getElementById('cpuStatusText').textContent = stats.cpu.status.toUpperCase();
+
+            // Update overall status
+            const overallStatusEl = document.getElementById('overallStatus');
+            overallStatusEl.className = `status-indicator status-${stats.status}`;
+            document.getElementById('overallStatusText').textContent = stats.status.toUpperCase();
+
+            // Update chart data
+            const time = new Date(stats.timestamp).toLocaleTimeString();
+            
+            if (ramLabels.length > 99) {
+                ramLabels.shift();
+                ramData.shift();
+                cpuData.shift();
+            }
+
+            ramLabels.push(time);
+            ramData.push(stats.ram.percentage);
+            cpuData.push(stats.cpu.percentage);
+
+            if (ramChart) {
+                ramChart.data.labels = ramLabels;
+                ramChart.data.datasets[0].data = ramData;
+                ramChart.update('none');
+
+                cpuChart.data.labels = ramLabels;
+                cpuChart.data.datasets[0].data = cpuData;
+                cpuChart.update('none');
+            }
+
+            // Update bots list
+            updateBotsList(stats.bots);
+
+            // Check for alerts
+            checkAlerts(stats);
+        });
+
+        function updateBotsList(bots) {
+            const botsList = document.getElementById('botsList');
+            botsList.innerHTML = '';
+
+            for (const [name, bot] of Object.entries(bots)) {
+                const statusClass = bot.status === 'online' ? 'status-normal' : 'status-critical';
+                const html = `
+                    <div class="bot-item">
+                        <div class="bot-info">
+                            <h3>
+                                <span class="status-indicator ${statusClass}"></span>
+                                ${name.toUpperCase()}
+                            </h3>
+                            <p>Status: ${bot.status} | Memory: ${bot.memory} MB | Uptime: ${new Date(bot.uptime).toLocaleTimeString()} | Restarts: ${bot.restarts}</p>
+                        </div>
+                        <div class="bot-actions">
+                            <button onclick="restartBot('${name}')">🔄 Restart</button>
+                        </div>
+                    </div>
+                `;
+                botsList.innerHTML += html;
+            }
+        }
+
+        function checkAlerts(stats) {
+            const alertsEl = document.getElementById('alerts');
+            alertsEl.innerHTML = '';
+
+            let alertHTML = '';
+
+            // RAM alerts
+            if (stats.ram.status === 'critical') {
+                alertHTML += `
+                    <div class="alert critical">
+                        🚨 CRITICAL: RAM usage is ${stats.ram.percentage.toFixed(1)}%! Auto-restart triggered.
+                    </div>
+                `;
+            } else if (stats.ram.status === 'veryhigh') {
+                alertHTML += `
+                    <div class="alert">
+                        ⚠️ WARNING: RAM usage is very high (${stats.ram.percentage.toFixed(1)}%). Preparing for potential restart.
+                    </div>
+                `;
+            }
+
+            // CPU alerts
+            if (stats.cpu.status === 'critical') {
+                alertHTML += `
+                    <div class="alert critical">
+                        🚨 CRITICAL: CPU usage is ${stats.cpu.percentage.toFixed(1)}%! Auto-restart triggered.
+                    </div>
+                `;
+            } else if (stats.cpu.status === 'veryhigh') {
+                alertHTML += `
+                    <div class="alert">
+                        ⚠️ WARNING: CPU usage is very high (${stats.cpu.percentage.toFixed(1)}%). Preparing for potential restart.
+                    </div>
+                `;
+            }
+
+            alertsEl.innerHTML = alertHTML;
+        }
+
+        socket.on('critical-restart', (data) => {
+            const trigger = data.type === 'ram' 
+                ? `RAM: ${data.stats.ram.percentage.toFixed(1)}%` 
+                : `CPU: ${data.stats.cpu.percentage.toFixed(1)}%`;
+            
+            alert(`🚨 CRITICAL RESTART: System restarted due to ${trigger}`);
+        });
+
+        socket.on('restart-done', (data) => {
+            alert(`✅ Bot restarted: ${data.botName}`);
+        });
+
+        socket.on('all-restarted', () => {
+            alert('✅ All bots have been restarted');
+        });
+
+        function restartBot(botName) {
+            if (confirm(`Restart ${botName}?`)) {
+                socket.emit('request-restart', botName);
+            }
+        }
+
+        function restartAllBots() {
+            if (confirm('⚠️ Restart ALL bots? This may cause downtime.')) {
+                socket.emit('request-restart', 'all');
+            }
+        }
+
+        // Initialize
+        window.addEventListener('DOMContentLoaded', () => {
+            initCharts();
+            socket.emit('request-stats');
+        });
+    </script>
+</body>
+</html>

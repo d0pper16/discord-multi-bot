@@ -1,0 +1,21 @@
+{
+  "name": "multi-bot-manager",
+  "version": "1.0.0",
+  "description": "Multi Discord Bot Manager with Dashboard",
+  "main": "multi-bot.js",
+  "scripts": {
+    "start": "pm2 start ecosystem.config.js",
+    "stop": "pm2 stop all",
+    "restart": "pm2 restart all",
+    "logs": "pm2 logs",
+    "dev": "node multi-bot.js"
+  },
+  "dependencies": {
+    "discord.js": "^14.x",
+    "discord-player": "^6.x",
+    "dotenv": "^16.x",
+    "express": "^4.x",
+    "socket.io": "^4.x",
+    "pm2": "^5.x"
+  }
+}
